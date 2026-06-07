@@ -59,12 +59,25 @@ like a Raspberry Pi running [`wyoming-satellite`](https://github.com/rhasspy/wyo
 
 ## Building the APK
 
-This is a standard Gradle/Android Studio project. A Gradle wrapper is included.
+This is a standard Gradle/Android Studio project (Gradle 8.7, AGP 8.5.2,
+Kotlin 1.9.24).
+
+### Option 0 — GitHub Actions (no local toolchain needed)
+
+Every push builds the APK in CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)).
+Open the run under the repository's **Actions** tab and download the
+**`wyoming-satellite-debug`** artifact — it contains `app-debug.apk`, ready to
+sideload. You can also trigger a build manually via **Actions → Build APK → Run
+workflow**.
+
+The Gradle wrapper jar is intentionally **not** committed; CI and Android Studio
+provide Gradle, and CLI users can regenerate it with `gradle wrapper` (see below).
 
 ### Option A — Android Studio (easiest)
 
 1. Open the project folder in Android Studio (Hedgehog or newer).
-2. Let it sync Gradle and download the SDK components it asks for.
+2. Let it sync Gradle and download the SDK components it asks for. Android
+   Studio sets up the Gradle wrapper automatically on first sync.
 3. **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
 4. The APK lands in `app/build/outputs/apk/debug/app-debug.apk`.
 
@@ -77,6 +90,14 @@ You need the Android SDK installed and pointed to via either the
 ```properties
 # local.properties
 sdk.dir=/absolute/path/to/Android/Sdk
+```
+
+If `gradle/wrapper/gradle-wrapper.jar` is missing (so `./gradlew` won't run),
+generate it once with a local Gradle 8.7+ install — Android Studio does this for
+you automatically:
+
+```bash
+gradle wrapper --gradle-version 8.7
 ```
 
 Then:
