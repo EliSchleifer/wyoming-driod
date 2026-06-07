@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Wyoming Satellite</string>
+
+    <string name="status_running">● Satellite running</string>
+    <string name="status_stopped">○ Satellite stopped</string>
+
+    <string name="label_name">Satellite name (shown in Home Assistant)</string>
+    <string name="label_port">Port</string>
+    <string name="label_start_stage">Pipeline mode</string>
+    <string name="label_audio_source">Microphone source</string>
+    <string name="label_play_tts">Play spoken responses through this device</string>
+    <string name="label_start_on_boot">Start automatically on boot</string>
+
+    <string name="action_start">Start satellite</string>
+    <string name="action_stop">Stop satellite</string>
+
+    <string name="mic_denied">Microphone permission is required to stream audio.</string>
+
+    <string name="ip_template">Address: %1$s : %2$d</string>
+    <string name="ip_unknown">Address: not connected to a network</string>
+
+    <string name="waiting_for_ha">Waiting for Home Assistant to connect…</string>
+    <string name="streaming">Streaming audio · %1$d connected</string>
+    <string name="connected">Connected · %1$d</string>
+
+    <string-array name="start_stage_labels">
+        <item>Wake word (Home Assistant listens for it)</item>
+        <item>Always stream to speech-to-text</item>
+    </string-array>
+
+    <string-array name="audio_source_labels">
+        <item>Voice recognition (recommended)</item>
+        <item>Microphone (raw)</item>
+        <item>Voice communication (echo cancellation)</item>
+        <item>Camcorder</item>
+        <item>Unprocessed</item>
+    </string-array>
+</resources>
