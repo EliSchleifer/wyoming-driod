@@ -12,8 +12,17 @@ import android.util.Log
  */
 class NsdAdvertiser(context: Context) {
 
+    private val appContext = context.applicationContext
+
     private val nsdManager =
-        context.applicationContext.getSystemService(Context.NSD_SERVICE) as? NsdManager
+        appContext.getSystemService(Context.NSD_SERVICE) as? NsdManager
+
+    /** App versionName, used as a TXT record. Falls back if unavailable. */
+    private val appVersion: String = try {
+        appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName ?: "1.0.0"
+    } catch (e: Exception) {
+        "1.0.0"
+    }
 
     private var listener: NsdManager.RegistrationListener? = null
 
@@ -25,6 +34,9 @@ class NsdAdvertiser(context: Context) {
             this.serviceName = serviceName
             this.serviceType = "_wyoming._tcp."
             this.port = port
+            // TXT records shown in Home Assistant's discovery card.
+            setAttribute("version", appVersion)
+            setAttribute("name", serviceName)
         }
         val l = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(info: NsdServiceInfo) {
