@@ -51,6 +51,7 @@ class WyomingServer(
 
     interface Listener {
         fun onStateChanged(connections: Int, streaming: Boolean)
+        fun onProcessingChanged(active: Boolean)
         fun onLog(message: String)
     }
 
@@ -62,6 +63,8 @@ class WyomingServer(
     private val streamers = CopyOnWriteArraySet<ClientConnection>()
 
     private val playback = AudioPlayback()
+
+    @Volatile private var processingActive = false
 
     // Guarded by `captureLock`.
     private val captureLock = Any()
@@ -94,7 +97,14 @@ class WyomingServer(
             audioCapture = null
         }
         playback.stop()
+        setProcessing(false)
         notifyState()
+    }
+
+    private fun setProcessing(active: Boolean) {
+        if (processingActive == active) return
+        processingActive = active
+        listener.onProcessingChanged(active)
     }
 
     private fun acceptLoop(ss: ServerSocket) {
@@ -202,11 +212,26 @@ class WyomingServer(
                     playback.start(rate, channels)
                 }
                 AUDIO_CHUNK -> if (config.playTts) event.payload?.let { playback.write(it) }
-                AUDIO_STOP -> if (config.playTts) playback.stop()
+                AUDIO_STOP -> {
+                    if (config.playTts) {
+                        playback.stop()
+                        setProcessing(false)
+                    }
+                }
                 TRANSCRIPT -> listener.onLog("Heard: \"${event.data?.optString("text", "")}\"")
-                SYNTHESIZE -> listener.onLog("Reply: \"${event.data?.optString("text", "")}\"")
-                DETECTION -> listener.onLog("Wake word detected")
-                else -> { /* voice-started/stopped, timers, etc. — ignored */ }
+                SYNTHESIZE -> {
+                    listener.onLog("Reply: \"${event.data?.optString("text", "")}\"")
+                    if (!config.playTts) setProcessing(false)
+                }
+                DETECTION -> {
+                    listener.onLog("Wake word detected")
+                    setProcessing(true)
+                }
+                WyomingEvent.VOICE_STARTED -> setProcessing(true)
+                WyomingEvent.VOICE_STOPPED -> {
+                    if (!config.playTts) setProcessing(false)
+                }
+                else -> { /* timers, etc. — ignored */ }
             }
         }
 

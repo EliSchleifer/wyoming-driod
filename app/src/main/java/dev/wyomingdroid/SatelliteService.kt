@@ -83,6 +83,7 @@ class SatelliteService : Service(), WyomingServer.Listener {
         running = false
         connectionCount = 0
         streaming = false
+        processingActive = false
         Prefs(this).serviceEnabled = false
         advertiser?.unregister()
         advertiser = null
@@ -101,6 +102,11 @@ class SatelliteService : Service(), WyomingServer.Listener {
     override fun onStateChanged(connections: Int, streaming: Boolean) {
         connectionCount = connections
         SatelliteService.streaming = streaming
+        updateNotification()
+    }
+
+    override fun onProcessingChanged(active: Boolean) {
+        processingActive = active
         updateNotification()
     }
 
@@ -161,6 +167,7 @@ class SatelliteService : Service(), WyomingServer.Listener {
         )
 
         val text = when {
+            processingActive -> "Listening…"
             connectionCount == 0 -> "Waiting for Home Assistant…"
             streaming -> "Streaming audio ($connectionCount connected)"
             else -> "Connected ($connectionCount)"
@@ -209,6 +216,7 @@ class SatelliteService : Service(), WyomingServer.Listener {
         @Volatile var running = false
         @Volatile var connectionCount = 0
         @Volatile var streaming = false
+        @Volatile var processingActive = false
         @Volatile var statusLine = ""
 
         fun start(context: Context) {

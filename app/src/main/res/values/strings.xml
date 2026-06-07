@@ -23,6 +23,7 @@
     <string name="waiting_for_ha">Waiting for Home Assistant to connect…</string>
     <string name="streaming">Streaming audio · %1$d connected</string>
     <string name="connected">Connected · %1$d</string>
+    <string name="processing">Listening &amp; processing…</string>
 
     <string-array name="start_stage_labels">
         <item>Wake word (Home Assistant listens for it)</item>

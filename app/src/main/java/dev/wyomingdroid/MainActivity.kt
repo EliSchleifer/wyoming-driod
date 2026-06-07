@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusView: TextView
     private lateinit var ipInfoView: TextView
     private lateinit var logView: TextView
+    private lateinit var rainbowBanner: RainbowBannerView
     private lateinit var nameField: EditText
     private lateinit var portField: EditText
     private lateinit var startStageSpinner: Spinner
@@ -36,7 +37,8 @@ class MainActivity : AppCompatActivity() {
     private val refresh = object : Runnable {
         override fun run() {
             updateStatus()
-            handler.postDelayed(this, 1000)
+            val delay = if (SatelliteService.processingActive) 150L else 1000L
+            handler.postDelayed(this, delay)
         }
     }
 
@@ -60,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         statusView = findViewById(R.id.status)
         ipInfoView = findViewById(R.id.ip_info)
         logView = findViewById(R.id.log_line)
+        rainbowBanner = findViewById(R.id.rainbow_banner)
         nameField = findViewById(R.id.name)
         portField = findViewById(R.id.port)
         startStageSpinner = findViewById(R.id.start_stage)
@@ -144,7 +147,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatus() {
         val running = SatelliteService.running
-        statusView.setText(if (running) R.string.status_running else R.string.status_stopped)
+        val processing = SatelliteService.processingActive
+
+        rainbowBanner.active = processing
+        applyBannerTextColors(processing)
+
+        statusView.setText(
+            when {
+                processing -> R.string.processing
+                running -> R.string.status_running
+                else -> R.string.status_stopped
+            },
+        )
 
         val ip = getLocalIpAddress()
         ipInfoView.text = if (ip != null) {
@@ -154,11 +168,30 @@ class MainActivity : AppCompatActivity() {
         }
 
         logView.text = when {
+            processing -> SatelliteService.statusLine.ifBlank { getString(R.string.processing) }
             !running -> ""
             SatelliteService.connectionCount == 0 -> getString(R.string.waiting_for_ha)
             SatelliteService.streaming -> getString(R.string.streaming, SatelliteService.connectionCount)
             else -> getString(R.string.connected, SatelliteService.connectionCount)
         }
+    }
+
+    private fun applyBannerTextColors(processing: Boolean) {
+        val primary = ContextCompat.getColor(
+            this,
+            if (processing) R.color.banner_text else R.color.status_text,
+        )
+        val secondary = ContextCompat.getColor(
+            this,
+            if (processing) R.color.banner_text_secondary else R.color.status_text_secondary,
+        )
+        val muted = ContextCompat.getColor(
+            this,
+            if (processing) R.color.banner_text_secondary else R.color.status_text_muted,
+        )
+        statusView.setTextColor(primary)
+        ipInfoView.setTextColor(secondary)
+        logView.setTextColor(muted)
     }
 
     /** First non-loopback IPv4 address (works for both Wi-Fi and Ethernet). */
