@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Coroutine
+from typing import Callable
 
 from .wyoming_io import WyomingEvent, read_event, write_event
 
 _LOGGER = logging.getLogger(__name__)
 
-LevelCallback = Callable[[float, float], Coroutine[Any, Any, None]]
+LevelCallback = Callable[[float, float], None]
 
 
 class SatelliteMonitor:
@@ -61,24 +61,10 @@ class SatelliteMonitor:
         reader, writer = await asyncio.open_connection(self._host, self._port)
         try:
             await write_event(writer, WyomingEvent("describe"))
-            while True:
-                event = await read_event(reader)
-                if event is None:
-                    break
-                if event.type == "info":
-                    break
-                if event.type:
-                    continue
+            await self._read_until(reader, "info")
 
             await write_event(writer, WyomingEvent("monitor"))
-            while True:
-                event = await read_event(reader)
-                if event is None:
-                    break
-                if event.type == "monitor-started":
-                    break
-                if event.type == "info":
-                    continue
+            await self._read_until(reader, "monitor-started")
 
             while self._running:
                 event = await read_event(reader)
@@ -87,7 +73,7 @@ class SatelliteMonitor:
                 if event.type == "audio-level" and event.data is not None:
                     level = float(event.data.get("level", 0.0))
                     peak = float(event.data.get("peak", 0.0))
-                    await self._on_level(level, peak)
+                    self._on_level(level, peak)
                 elif event.type == "ping":
                     await write_event(writer, WyomingEvent("pong", event.data))
         finally:
@@ -96,3 +82,11 @@ class SatelliteMonitor:
                 await writer.wait_closed()
             except Exception:
                 pass
+
+    async def _read_until(self, reader: asyncio.StreamReader, event_type: str) -> None:
+        for _ in range(20):
+            event = await read_event(reader)
+            if event is None:
+                return
+            if event.type == event_type:
+                return

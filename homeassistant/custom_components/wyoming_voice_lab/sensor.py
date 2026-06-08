@@ -18,7 +18,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime = hass.data[DOMAIN][entry.entry_id]
-    entity = WyomingVoiceLabSensorEntity(runtime, entry)
+    entity = WyomingVoiceLabSensorEntity(runtime, entry.entry_id, entry.data["name"])
     runtime.listeners.append(entity)
     async_add_entities([entity])
 
@@ -26,18 +26,18 @@ async def async_setup_entry(
 class WyomingVoiceLabSensorEntity(SensorEntity):
     """Mic level sensor for a Wyoming satellite."""
 
-    _attr_entity_category = EntityCategory.Diagnostic
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:microphone"
 
-    def __init__(self, runtime, entry: ConfigEntry) -> None:
+    def __init__(self, runtime, entry_id: str, name: str) -> None:
         self._runtime = runtime
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_mic_level"
-        self._attr_name = f"{runtime.name} mic level"
+        self._entry_id = entry_id
+        self._attr_unique_id = f"{entry_id}_mic_level"
+        self._attr_name = f"{name} mic level"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=runtime.name,
+            identifiers={(DOMAIN, entry_id)},
+            name=name,
             manufacturer="wyoming-driod",
             model="Wyoming Satellite",
         )
@@ -53,5 +53,5 @@ class WyomingVoiceLabSensorEntity(SensorEntity):
             "waveform": list(self._runtime.waveform),
             "host": self._runtime.host,
             "port": self._runtime.port,
-            "entry_id": self._entry.entry_id,
+            "entry_id": self._entry_id,
         }

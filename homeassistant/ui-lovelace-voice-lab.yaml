@@ -1,0 +1,7 @@
+title: "Voice Lab"
+views:
+  - title: Voice Lab
+    path: voice-lab
+    type: panel
+    icon: mdi:microphone
+    cards: !include lovelace/voice_lab_cards.yaml

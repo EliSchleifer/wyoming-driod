@@ -1,0 +1,3 @@
+type: custom:voice-lab-card
+title: Voice Lab
+entity: sensor.android_satellite_mic_level
