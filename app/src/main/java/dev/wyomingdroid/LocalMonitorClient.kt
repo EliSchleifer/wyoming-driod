@@ -63,7 +63,12 @@ class LocalMonitorClient(
             } finally {
                 try { socket?.close() } catch (_: Exception) {}
             }
-            if (running) Thread.sleep(2_000)
+            if (!running) break
+            try {
+                Thread.sleep(2_000)
+            } catch (_: InterruptedException) {
+                break
+            }
         }
     }
 

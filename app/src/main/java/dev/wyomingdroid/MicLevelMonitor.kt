@@ -40,7 +40,7 @@ object MicLevelMonitor {
         peak *= 0.96f
 
         synchronized(waveform) {
-            waveform[writeIndex] = level
+            waveform[writeIndex] = chunkPeak.coerceIn(0f, 1f)
             writeIndex = (writeIndex + 1) % WAVEFORM_SIZE
         }
     }
@@ -51,7 +51,7 @@ object MicLevelMonitor {
         if (peak > this.peak) this.peak = peak.coerceIn(0f, 1f)
         this.peak *= 0.96f
         synchronized(waveform) {
-            waveform[writeIndex] = this.level
+            waveform[writeIndex] = peak.coerceIn(0f, 1f)
             writeIndex = (writeIndex + 1) % WAVEFORM_SIZE
         }
     }

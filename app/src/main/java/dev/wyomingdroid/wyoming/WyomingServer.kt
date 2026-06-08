@@ -94,6 +94,8 @@ class WyomingServer(
         } catch (_: Exception) {
         }
         serverSocket = null
+        acceptThread?.interrupt()
+        acceptThread = null
         connections.forEach { it.close() }
         connections.clear()
         streamers.clear()
@@ -105,6 +107,18 @@ class WyomingServer(
         playback.stop()
         setProcessing(false)
         notifyState()
+    }
+
+    fun isHealthy(): Boolean = running && serverSocket?.isClosed == false
+
+    /** Retries microphone capture when clients are connected but capture died. */
+    fun ensureAudioCapture() {
+        if (streamers.isEmpty() && monitors.isEmpty()) return
+        synchronized(captureLock) {
+            if (audioCapture?.isRunning == true) return
+            audioCapture = null
+        }
+        ensureCapture()
     }
 
     private fun setProcessing(active: Boolean) {
@@ -123,8 +137,16 @@ class WyomingServer(
                 notifyState()
                 conn.start()
             } catch (e: Exception) {
-                if (running) listener.onLog("Accept error: ${e.message}")
-                break
+                if (running) {
+                    listener.onLog("Accept error: ${e.message}")
+                    try {
+                        Thread.sleep(1_000)
+                    } catch (_: InterruptedException) {
+                        break
+                    }
+                } else {
+                    break
+                }
             }
         }
     }

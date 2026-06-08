@@ -13,6 +13,7 @@
     <string name="label_audio_source">Microphone source</string>
     <string name="label_play_tts">Play spoken responses through this device</string>
     <string name="label_start_on_boot">Start automatically on boot</string>
+    <string name="label_hide_ui_for_kiosk">Hide UI when auto-starting (kiosk mode)</string>
 
     <string name="action_start">Start satellite</string>
     <string name="action_stop">Stop satellite</string>
@@ -29,15 +30,8 @@
     <string name="connected">Connected · %1$d</string>
     <string name="processing">Listening &amp; processing…</string>
 
-    <string name="tab_satellite">Satellite</string>
-    <string name="tab_live_view">Live view</string>
-    <string name="live_view_title">Live view</string>
-    <string name="live_view_subtitle">%1$s · %2$s:%3$d</string>
     <string name="live_view_idle">Waiting for audio…</string>
     <string name="live_view_level">Level %1$d%% · Peak %2$d%%</string>
-    <string name="live_view_listening">Microphone active</string>
-    <string name="live_view_preview">Mic preview (start satellite for HA streaming)</string>
-    <string name="live_view_processing">Assist is processing</string>
 
     <string-array name="start_stage_labels">
         <item>Wake word (Home Assistant listens for it)</item>

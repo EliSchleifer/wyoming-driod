@@ -38,6 +38,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Headless start for Fully Kiosk / scripts — no UI shown -->
+        <activity
+            android:name=".SatelliteLauncherActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.LauncherInvisible">
+            <intent-filter>
+                <action android:name="dev.wyomingdroid.action.START_SATELLITE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".SatelliteService"
             android:exported="false"
@@ -49,8 +61,17 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".BootStartReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".ServiceRecoveryReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 </manifest>

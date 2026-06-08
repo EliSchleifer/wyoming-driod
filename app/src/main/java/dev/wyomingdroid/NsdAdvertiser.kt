@@ -25,8 +25,25 @@ class NsdAdvertiser(context: Context) {
     }
 
     private var listener: NsdManager.RegistrationListener? = null
+    private var registeredName: String? = null
+    private var registeredPort: Int = 0
 
     fun register(serviceName: String, port: Int) {
+        registeredName = serviceName
+        registeredPort = port
+        registerInternal(serviceName, port)
+    }
+
+    /** Re-publish mDNS after Wi‑Fi drops or NSD registration expires. */
+    fun refresh(serviceName: String, port: Int) {
+        registeredName = serviceName
+        registeredPort = port
+        if (listener == null) {
+            registerInternal(serviceName, port)
+        }
+    }
+
+    private fun registerInternal(serviceName: String, port: Int) {
         val manager = nsdManager ?: return
         unregister()
 
