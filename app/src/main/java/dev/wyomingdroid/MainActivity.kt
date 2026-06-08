@@ -111,6 +111,7 @@ class MainActivity : AppCompatActivity() {
 
         tabSatellite.setOnClickListener { showSatelliteTab() }
         tabLiveView.setOnClickListener { showLiveViewTab() }
+        findViewById<Button>(R.id.live_view_close).setOnClickListener { showSatelliteTab() }
     }
 
     override fun onResume() {
@@ -126,12 +127,21 @@ class MainActivity : AppCompatActivity() {
         savePrefsFromUi()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (liveViewVisible) {
+            showSatelliteTab()
+        } else {
+            @Suppress("DEPRECATION")
+            super.onBackPressed()
+        }
+    }
+
     private fun showSatelliteTab() {
         liveViewVisible = false
         satellitePanel.visibility = View.VISIBLE
         liveViewPanel.visibility = View.GONE
-        tabSatellite.isEnabled = false
-        tabLiveView.isEnabled = true
+        updateTabSelection(satelliteSelected = true)
         stopLiveViewSources()
     }
 
@@ -139,10 +149,14 @@ class MainActivity : AppCompatActivity() {
         liveViewVisible = true
         satellitePanel.visibility = View.GONE
         liveViewPanel.visibility = View.VISIBLE
-        tabSatellite.isEnabled = true
-        tabLiveView.isEnabled = false
+        updateTabSelection(satelliteSelected = false)
         updateLiveViewHeader()
         startLiveViewSources()
+    }
+
+    private fun updateTabSelection(satelliteSelected: Boolean) {
+        tabSatellite.isSelected = satelliteSelected
+        tabLiveView.isSelected = !satelliteSelected
     }
 
     private fun startLiveViewSources() {
