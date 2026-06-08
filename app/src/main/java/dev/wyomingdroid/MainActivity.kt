@@ -28,11 +28,9 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var prefs: Prefs
 
-    private lateinit var statusView: TextView
-    private lateinit var ipInfoView: TextView
-    private lateinit var logView: TextView
     private lateinit var rainbowBanner: RainbowBannerView
     private lateinit var titleStatusDot: StatusDotView
+    private lateinit var connectionLine: TextView
     private lateinit var nameField: EditText
     private lateinit var portField: EditText
     private lateinit var startStageSpinner: Spinner
@@ -82,11 +80,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         prefs = Prefs(this)
 
-        statusView = findViewById(R.id.status)
-        ipInfoView = findViewById(R.id.ip_info)
-        logView = findViewById(R.id.log_line)
         rainbowBanner = findViewById(R.id.rainbow_banner)
         titleStatusDot = findViewById(R.id.title_status_dot)
+        connectionLine = findViewById(R.id.connection_line)
         nameField = findViewById(R.id.name)
         portField = findViewById(R.id.port)
         startStageSpinner = findViewById(R.id.start_stage)
@@ -361,32 +357,10 @@ class MainActivity : AppCompatActivity() {
         val running = SatelliteService.running
         val processing = SatelliteService.processingActive
 
+        rainbowBanner.visibility = if (processing) View.VISIBLE else View.GONE
         rainbowBanner.active = processing
         titleStatusDot.live = running
-        applyBannerTextColors(processing)
-
-        statusView.setText(
-            when {
-                processing -> R.string.processing
-                running -> R.string.status_running
-                else -> R.string.status_stopped
-            },
-        )
-
-        val ip = getLocalIpAddress()
-        ipInfoView.text = if (ip != null) {
-            getString(R.string.ip_template, ip, prefs.port)
-        } else {
-            getString(R.string.ip_unknown)
-        }
-
-        logView.text = when {
-            processing -> SatelliteService.statusLine.ifBlank { getString(R.string.processing) }
-            !running -> ""
-            SatelliteService.connectionCount == 0 -> getString(R.string.waiting_for_ha)
-            SatelliteService.streaming -> getString(R.string.streaming, SatelliteService.connectionCount)
-            else -> getString(R.string.connected, SatelliteService.connectionCount)
-        }
+        connectionLine.text = buildConnectionLine(running, processing)
 
         portField.isEnabled = !running
         portField.alpha = if (running) 0.55f else 1f
@@ -396,22 +370,23 @@ class MainActivity : AppCompatActivity() {
         updateToggleButton()
     }
 
-    private fun applyBannerTextColors(processing: Boolean) {
-        val primary = ContextCompat.getColor(
-            this,
-            if (processing) R.color.banner_text else R.color.status_text,
-        )
-        val secondary = ContextCompat.getColor(
-            this,
-            if (processing) R.color.banner_text_secondary else R.color.status_text_secondary,
-        )
-        val muted = ContextCompat.getColor(
-            this,
-            if (processing) R.color.banner_text_secondary else R.color.status_text_muted,
-        )
-        statusView.setTextColor(primary)
-        ipInfoView.setTextColor(secondary)
-        logView.setTextColor(muted)
+    private fun buildConnectionLine(running: Boolean, processing: Boolean): String {
+        val ip = getLocalIpAddress()
+        val address = if (ip != null) {
+            getString(R.string.ip_template, ip, prefs.port)
+        } else {
+            getString(R.string.ip_unknown)
+        }
+        if (!running) {
+            return getString(R.string.status_line_stopped, address)
+        }
+        val streamStatus = when {
+            processing -> getString(R.string.processing)
+            SatelliteService.connectionCount == 0 -> getString(R.string.waiting_for_ha)
+            SatelliteService.streaming -> getString(R.string.streaming, SatelliteService.connectionCount)
+            else -> getString(R.string.connected, SatelliteService.connectionCount)
+        }
+        return getString(R.string.status_line_active, address, streamStatus)
     }
 
     private fun hasMicPermission(): Boolean =
