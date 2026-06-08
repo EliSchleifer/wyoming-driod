@@ -1,0 +1,18 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wyoming Voice Lab satellite",
+        "description": "Add a wyoming-driod satellite to monitor live microphone levels in Lovelace.",
+        "data": {
+          "name": "Satellite name",
+          "host": "Host or IP",
+          "port": "Port"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This satellite is already configured."
+    }
+  }
+}

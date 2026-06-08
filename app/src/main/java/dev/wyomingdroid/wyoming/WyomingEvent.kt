@@ -31,6 +31,11 @@ data class WyomingEvent(
         const val AUDIO_CHUNK = "audio-chunk"
         const val AUDIO_STOP = "audio-stop"
 
+        // Remote audio level monitoring (Home Assistant Voice Lab)
+        const val MONITOR = "monitor"
+        const val MONITOR_STARTED = "monitor-started"
+        const val AUDIO_LEVEL = "audio-level"
+
         // Sent to Home Assistant
         const val INFO = "info"
         const val RUN_PIPELINE = "run-pipeline"

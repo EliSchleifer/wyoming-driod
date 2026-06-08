@@ -233,6 +233,13 @@ Python library so Home Assistant talks to it unmodified.
 
 Audio format: **16 kHz, mono, 16-bit PCM** (what HA's Assist pipeline expects).
 
+---
+
+## Voice Lab (Lovelace) and Live view (on device)
+
+- **Live view** tab on the satellite app shows the local microphone waveform and level meter. When the satellite service is running it taps the same audio stream Home Assistant receives; otherwise it runs a mic preview.
+- **Voice Lab** in Home Assistant Lovelace monitors any satellite from your dashboard (see [`homeassistant/README.md`](homeassistant/README.md)).
+
 ## License
 
 See [LICENSE](LICENSE).

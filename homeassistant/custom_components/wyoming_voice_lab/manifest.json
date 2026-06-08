@@ -1,0 +1,11 @@
+{
+  "domain": "wyoming_voice_lab",
+  "name": "Wyoming Voice Lab",
+  "codeowners": ["@EliSchleifer"],
+  "config_flow": true,
+  "documentation": "https://github.com/EliSchleifer/wyoming-driod",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "1.0.0"
+}

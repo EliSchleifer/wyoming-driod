@@ -1,5 +1,6 @@
 package dev.wyomingdroid.wyoming
 
+import dev.wyomingdroid.MicLevelMonitor
 import dev.wyomingdroid.audio.AudioCapture
 import dev.wyomingdroid.audio.AudioPlayback
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.AUDIO_CHUNK
@@ -8,6 +9,9 @@ import dev.wyomingdroid.wyoming.WyomingEvent.Companion.AUDIO_STOP
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.DESCRIBE
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.DETECTION
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.INFO
+import dev.wyomingdroid.wyoming.WyomingEvent.Companion.MONITOR
+import dev.wyomingdroid.wyoming.WyomingEvent.Companion.MONITOR_STARTED
+import dev.wyomingdroid.wyoming.WyomingEvent.Companion.AUDIO_LEVEL
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.PAUSE_SATELLITE
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.PING
 import dev.wyomingdroid.wyoming.WyomingEvent.Companion.PONG
@@ -61,6 +65,7 @@ class WyomingServer(
 
     private val connections = CopyOnWriteArraySet<ClientConnection>()
     private val streamers = CopyOnWriteArraySet<ClientConnection>()
+    private val monitors = CopyOnWriteArraySet<ClientConnection>()
 
     private val playback = AudioPlayback()
 
@@ -92,6 +97,7 @@ class WyomingServer(
         connections.forEach { it.close() }
         connections.clear()
         streamers.clear()
+        monitors.clear()
         synchronized(captureLock) {
             audioCapture?.stop()
             audioCapture = null
@@ -131,38 +137,59 @@ class WyomingServer(
 
     private fun addStreamer(conn: ClientConnection) {
         streamers.add(conn)
-        synchronized(captureLock) {
-            if (audioCapture == null) {
-                val cap = AudioCapture(config.sampleRate, config.audioSource)
-                try {
-                    cap.start { pcm -> streamers.forEach { it.sendAudioChunk(pcm) } }
-                    audioCapture = cap
-                    listener.onLog("Microphone capture started")
-                } catch (e: Exception) {
-                    listener.onLog("Microphone error: ${e.message}")
-                }
-            }
-        }
+        ensureCapture()
         notifyState()
     }
 
     private fun removeStreamer(conn: ClientConnection) {
         streamers.remove(conn)
-        if (streamers.isEmpty()) {
-            // Stop on a separate thread: this can be called from the capture
-            // thread itself (on write failure), and AudioCapture.stop() joins
-            // that thread — joining self would deadlock.
-            val cap: AudioCapture?
-            synchronized(captureLock) {
-                cap = audioCapture
-                audioCapture = null
-            }
-            if (cap != null) {
-                Thread({ cap.stop() }, "wyoming-cap-stop").start()
-                listener.onLog("Microphone capture stopped")
+        maybeStopCapture()
+        notifyState()
+    }
+
+    private fun addMonitor(conn: ClientConnection) {
+        monitors.add(conn)
+        ensureCapture()
+    }
+
+    private fun removeMonitor(conn: ClientConnection) {
+        monitors.remove(conn)
+        maybeStopCapture()
+    }
+
+    private fun ensureCapture() {
+        synchronized(captureLock) {
+            if (audioCapture != null) return
+            val cap = AudioCapture(config.sampleRate, config.audioSource)
+            try {
+                cap.start { pcm ->
+                    MicLevelMonitor.onPcm(pcm)
+                    streamers.forEach { it.sendAudioChunk(pcm) }
+                    if (monitors.isNotEmpty()) {
+                        val level = MicLevelMonitor.level
+                        val peak = MicLevelMonitor.peak
+                        monitors.forEach { it.sendAudioLevel(level, peak) }
+                    }
+                }
+                audioCapture = cap
+                listener.onLog("Microphone capture started")
+            } catch (e: Exception) {
+                listener.onLog("Microphone error: ${e.message}")
             }
         }
-        notifyState()
+    }
+
+    private fun maybeStopCapture() {
+        if (streamers.isNotEmpty() || monitors.isNotEmpty()) return
+        val cap: AudioCapture?
+        synchronized(captureLock) {
+            cap = audioCapture
+            audioCapture = null
+        }
+        if (cap != null) {
+            Thread({ cap.stop() }, "wyoming-cap-stop").start()
+            listener.onLog("Microphone capture stopped")
+        }
     }
 
     // --- One Home Assistant connection -----------------------------------------
@@ -175,6 +202,7 @@ class WyomingServer(
 
         @Volatile private var alive = true
         @Volatile private var streaming = false
+        @Volatile private var monitoring = false
         private var samplesSent = 0L
         private var readerThread: Thread? = null
 
@@ -203,6 +231,7 @@ class WyomingServer(
             when (event.type) {
                 "" -> {} // stray blank line
                 DESCRIBE -> write(buildInfo())
+                MONITOR -> startMonitoring()
                 RUN_SATELLITE -> startStreaming()
                 PAUSE_SATELLITE -> stopStreaming()
                 PING -> write(WyomingEvent(PONG, event.data))
@@ -232,6 +261,30 @@ class WyomingServer(
                     if (!config.playTts) setProcessing(false)
                 }
                 else -> { /* timers, etc. — ignored */ }
+            }
+        }
+
+        private fun startMonitoring() {
+            if (monitoring) return
+            monitoring = true
+            addMonitor(this)
+            write(WyomingEvent(MONITOR_STARTED, JSONObject()))
+            listener.onLog("Audio monitor connected")
+        }
+
+        private fun stopMonitoring() {
+            if (!monitoring) return
+            monitoring = false
+            removeMonitor(this)
+        }
+
+        fun sendAudioLevel(level: Float, peak: Float) {
+            if (!monitoring || !alive) return
+            try {
+                val data = JSONObject().put("level", level.toDouble()).put("peak", peak.toDouble())
+                write(WyomingEvent(AUDIO_LEVEL, data))
+            } catch (_: Exception) {
+                close()
             }
         }
 
@@ -270,6 +323,7 @@ class WyomingServer(
             if (!alive) return
             alive = false
             stopStreaming()
+            stopMonitoring()
             try {
                 socket.close()
             } catch (_: Exception) {

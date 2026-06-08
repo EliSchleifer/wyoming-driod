@@ -6,9 +6,11 @@ import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.Switch
 import android.widget.TextView
@@ -16,6 +18,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import dev.wyomingdroid.audio.AudioCapture
 import java.net.NetworkInterface
 
 class MainActivity : AppCompatActivity() {
@@ -33,19 +36,34 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playTtsSwitch: Switch
     private lateinit var startOnBootSwitch: Switch
 
+    private lateinit var satellitePanel: ScrollView
+    private lateinit var liveViewPanel: View
+    private lateinit var tabSatellite: Button
+    private lateinit var tabLiveView: Button
+    private lateinit var liveSubtitleView: TextView
+    private lateinit var liveVisualizer: AudioVisualizerView
+    private lateinit var liveLevelView: TextView
+    private lateinit var liveStatusView: TextView
+
     private val handler = Handler(Looper.getMainLooper())
     private val refresh = object : Runnable {
         override fun run() {
             updateStatus()
-            val delay = if (SatelliteService.processingActive) 150L else 1000L
+            if (liveViewVisible) updateLiveView()
+            val delay = when {
+                liveViewVisible -> 50L
+                SatelliteService.processingActive -> 150L
+                else -> 1000L
+            }
             handler.postDelayed(this, delay)
         }
     }
 
-    // value -> label for the start-stage spinner
-    private val startStageValues = listOf("wake", "asr")
+    private var liveViewVisible = false
+    private var localMonitor: LocalMonitorClient? = null
+    private var previewCapture: AudioCapture? = null
 
-    // MediaRecorder.AudioSource value for each audio-source spinner entry
+    private val startStageValues = listOf("wake", "asr")
     private val audioSourceValues = listOf(
         MediaRecorder.AudioSource.VOICE_RECOGNITION,
         MediaRecorder.AudioSource.MIC,
@@ -70,28 +88,131 @@ class MainActivity : AppCompatActivity() {
         playTtsSwitch = findViewById(R.id.play_tts)
         startOnBootSwitch = findViewById(R.id.start_on_boot)
 
+        satellitePanel = findViewById(R.id.satellite_panel)
+        liveViewPanel = findViewById(R.id.live_view_panel)
+        tabSatellite = findViewById(R.id.tab_satellite)
+        tabLiveView = findViewById(R.id.tab_live_view)
+        liveSubtitleView = findViewById(R.id.live_view_subtitle)
+        liveVisualizer = findViewById(R.id.live_visualizer)
+        liveLevelView = findViewById(R.id.live_level)
+        liveStatusView = findViewById(R.id.live_status)
+
         startStageSpinner.adapter = simpleAdapter(resources.getStringArray(R.array.start_stage_labels))
         audioSourceSpinner.adapter = simpleAdapter(resources.getStringArray(R.array.audio_source_labels))
 
         loadPrefsIntoUi()
+        showSatelliteTab()
 
         findViewById<Button>(R.id.start_button).setOnClickListener { onStartClicked() }
         findViewById<Button>(R.id.stop_button).setOnClickListener {
             savePrefsFromUi()
             SatelliteService.stop(this)
         }
+
+        tabSatellite.setOnClickListener { showSatelliteTab() }
+        tabLiveView.setOnClickListener { showLiveViewTab() }
     }
 
     override fun onResume() {
         super.onResume()
         handler.post(refresh)
+        if (liveViewVisible) startLiveViewSources()
     }
 
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(refresh)
-        // Persist edits so a reboot / boot-start uses the latest config.
+        stopLiveViewSources()
         savePrefsFromUi()
+    }
+
+    private fun showSatelliteTab() {
+        liveViewVisible = false
+        satellitePanel.visibility = View.VISIBLE
+        liveViewPanel.visibility = View.GONE
+        tabSatellite.isEnabled = false
+        tabLiveView.isEnabled = true
+        stopLiveViewSources()
+    }
+
+    private fun showLiveViewTab() {
+        liveViewVisible = true
+        satellitePanel.visibility = View.GONE
+        liveViewPanel.visibility = View.VISIBLE
+        tabSatellite.isEnabled = true
+        tabLiveView.isEnabled = false
+        updateLiveViewHeader()
+        startLiveViewSources()
+    }
+
+    private fun startLiveViewSources() {
+        if (!hasMicPermission()) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC_LIVE)
+            return
+        }
+        stopLiveViewSources()
+        MicLevelMonitor.reset()
+
+        if (SatelliteService.running) {
+            localMonitor = LocalMonitorClient(
+                port = prefs.port,
+                onConnected = { handler.post { liveStatusView.setText(R.string.live_view_listening) } },
+                onDisconnected = { msg ->
+                    handler.post { liveStatusView.text = msg }
+                },
+            ).also { it.start() }
+            return
+        }
+
+        val capture = AudioCapture(Prefs.SAMPLE_RATE, prefs.audioSource)
+        try {
+            capture.start { pcm -> MicLevelMonitor.onPcm(pcm) }
+            previewCapture = capture
+            liveStatusView.setText(R.string.live_view_preview)
+        } catch (e: Exception) {
+            liveStatusView.text = e.message ?: "Mic error"
+        }
+    }
+
+    private fun stopLiveViewSources() {
+        localMonitor?.stop()
+        localMonitor = null
+        previewCapture?.stop()
+        previewCapture = null
+    }
+
+    private fun updateLiveViewHeader() {
+        val ip = getLocalIpAddress() ?: "—"
+        liveSubtitleView.text = getString(
+            R.string.live_view_subtitle,
+            prefs.satelliteName,
+            ip,
+            prefs.port,
+        )
+    }
+
+    private fun updateLiveView() {
+        updateLiveViewHeader()
+        val processing = SatelliteService.processingActive
+        liveVisualizer.processing = processing
+        liveVisualizer.updateFromMonitor()
+
+        val active = liveVisualizer.active || processing
+        liveLevelView.text = if (active) {
+            getString(
+                R.string.live_view_level,
+                (MicLevelMonitor.level * 100).toInt(),
+                (MicLevelMonitor.peak * 100).toInt(),
+            )
+        } else {
+            getString(R.string.live_view_idle)
+        }
+
+        if (processing) {
+            liveStatusView.setText(R.string.live_view_processing)
+        } else if (SatelliteService.streaming) {
+            liveStatusView.setText(R.string.live_view_listening)
+        }
     }
 
     private fun simpleAdapter(items: Array<String>): ArrayAdapter<String> =
@@ -119,12 +240,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun onStartClicked() {
         savePrefsFromUi()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC,
-            )
+        if (!hasMicPermission()) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
             return
         }
         SatelliteService.start(this)
@@ -136,9 +253,14 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_MIC) {
-            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+        when (requestCode) {
+            REQ_MIC -> if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
                 SatelliteService.start(this)
+            } else {
+                Toast.makeText(this, R.string.mic_denied, Toast.LENGTH_LONG).show()
+            }
+            REQ_MIC_LIVE -> if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                startLiveViewSources()
             } else {
                 Toast.makeText(this, R.string.mic_denied, Toast.LENGTH_LONG).show()
             }
@@ -194,7 +316,10 @@ class MainActivity : AppCompatActivity() {
         logView.setTextColor(muted)
     }
 
-    /** First non-loopback IPv4 address (works for both Wi-Fi and Ethernet). */
+    private fun hasMicPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+
     private fun getLocalIpAddress(): String? {
         return try {
             NetworkInterface.getNetworkInterfaces().asSequence()
@@ -209,5 +334,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQ_MIC = 100
+        private const val REQ_MIC_LIVE = 101
     }
 }

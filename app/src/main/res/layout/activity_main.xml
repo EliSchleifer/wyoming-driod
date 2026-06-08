@@ -40,6 +40,7 @@
     </dev.wyomingdroid.RainbowBannerView>
 
     <ScrollView
+        android:id="@+id/satellite_panel"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -129,4 +130,29 @@
 
     </LinearLayout>
     </ScrollView>
+
+    <include layout="@layout/panel_live_view" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#EEEEEE">
+
+        <Button
+            android:id="@+id/tab_satellite"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/tab_satellite" />
+
+        <Button
+            android:id="@+id/tab_live_view"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="@string/tab_live_view" />
+    </LinearLayout>
 </LinearLayout>
