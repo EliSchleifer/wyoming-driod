@@ -7,6 +7,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.GestureDetector
+import android.view.MotionEvent
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -101,6 +104,10 @@ class MainActivity : AppCompatActivity() {
         audioSourceSpinner.adapter = simpleAdapter(resources.getStringArray(R.array.audio_source_labels))
 
         loadPrefsIntoUi()
+        setupDoubleTapEdit(nameField)
+        setupDoubleTapEdit(portField, canEdit = { !SatelliteService.running }) {
+            Toast.makeText(this, R.string.port_locked_running, Toast.LENGTH_SHORT).show()
+        }
         showSatelliteTab()
 
         findViewById<Button>(R.id.start_button).setOnClickListener { onStartClicked() }
@@ -245,11 +252,65 @@ class MainActivity : AppCompatActivity() {
 
     private fun savePrefsFromUi() {
         prefs.satelliteName = nameField.text.toString().ifBlank { Prefs.DEFAULT_NAME }
-        prefs.port = portField.text.toString().toIntOrNull()?.coerceIn(1, 65535) ?: Prefs.DEFAULT_PORT
+        if (!SatelliteService.running) {
+            prefs.port = portField.text.toString().toIntOrNull()?.coerceIn(1, 65535) ?: Prefs.DEFAULT_PORT
+        }
         prefs.startStage = startStageValues[startStageSpinner.selectedItemPosition]
         prefs.audioSource = audioSourceValues[audioSourceSpinner.selectedItemPosition]
         prefs.playTts = playTtsSwitch.isChecked
         prefs.startOnBoot = startOnBootSwitch.isChecked
+    }
+
+    private fun setupDoubleTapEdit(
+        field: EditText,
+        canEdit: () -> Boolean = { true },
+        onLockedTap: (() -> Unit)? = null,
+    ) {
+        lockField(field)
+        val detector = GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(e: MotionEvent): Boolean {
+                    if (!canEdit()) {
+                        onLockedTap?.invoke()
+                        return true
+                    }
+                    unlockField(field)
+                    return true
+                }
+            },
+        )
+        field.setOnTouchListener { view, event ->
+            if (detector.onTouchEvent(event)) {
+                true
+            } else {
+                view.onTouchEvent(event)
+            }
+        }
+        field.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                lockField(field)
+            }
+        }
+    }
+
+    private fun unlockField(field: EditText) {
+        field.isFocusable = true
+        field.isFocusableInTouchMode = true
+        field.isCursorVisible = true
+        field.requestFocus()
+        field.setSelection(field.text.length)
+        getSystemService(InputMethodManager::class.java)
+            ?.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun lockField(field: EditText) {
+        field.isFocusable = false
+        field.isFocusableInTouchMode = false
+        field.isCursorVisible = false
+        field.clearFocus()
+        getSystemService(InputMethodManager::class.java)
+            ?.hideSoftInputFromWindow(field.windowToken, 0)
     }
 
     private fun onStartClicked() {
@@ -309,6 +370,12 @@ class MainActivity : AppCompatActivity() {
             SatelliteService.connectionCount == 0 -> getString(R.string.waiting_for_ha)
             SatelliteService.streaming -> getString(R.string.streaming, SatelliteService.connectionCount)
             else -> getString(R.string.connected, SatelliteService.connectionCount)
+        }
+
+        portField.isEnabled = !running
+        portField.alpha = if (running) 0.55f else 1f
+        if (running) {
+            lockField(portField)
         }
     }
 

@@ -7,6 +7,8 @@
 
     <string name="label_name">Satellite name (shown in Home Assistant)</string>
     <string name="label_port">Port</string>
+    <string name="hint_double_tap_edit">Double-tap to edit</string>
+    <string name="port_locked_running">Stop the satellite before changing the port.</string>
     <string name="label_start_stage">Pipeline mode</string>
     <string name="label_audio_source">Microphone source</string>
     <string name="label_play_tts">Play spoken responses through this device</string>
