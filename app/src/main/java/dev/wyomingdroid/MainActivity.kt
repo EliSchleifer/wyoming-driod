@@ -32,12 +32,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ipInfoView: TextView
     private lateinit var logView: TextView
     private lateinit var rainbowBanner: RainbowBannerView
+    private lateinit var titleStatusDot: StatusDotView
     private lateinit var nameField: EditText
     private lateinit var portField: EditText
     private lateinit var startStageSpinner: Spinner
     private lateinit var audioSourceSpinner: Spinner
     private lateinit var playTtsSwitch: Switch
     private lateinit var startOnBootSwitch: Switch
+    private lateinit var satelliteToggleButton: Button
 
     private lateinit var satellitePanel: ScrollView
     private lateinit var liveViewPanel: View
@@ -84,12 +86,14 @@ class MainActivity : AppCompatActivity() {
         ipInfoView = findViewById(R.id.ip_info)
         logView = findViewById(R.id.log_line)
         rainbowBanner = findViewById(R.id.rainbow_banner)
+        titleStatusDot = findViewById(R.id.title_status_dot)
         nameField = findViewById(R.id.name)
         portField = findViewById(R.id.port)
         startStageSpinner = findViewById(R.id.start_stage)
         audioSourceSpinner = findViewById(R.id.audio_source)
         playTtsSwitch = findViewById(R.id.play_tts)
         startOnBootSwitch = findViewById(R.id.start_on_boot)
+        satelliteToggleButton = findViewById(R.id.satellite_toggle_button)
 
         satellitePanel = findViewById(R.id.satellite_panel)
         liveViewPanel = findViewById(R.id.live_view_panel)
@@ -110,15 +114,11 @@ class MainActivity : AppCompatActivity() {
         }
         showSatelliteTab()
 
-        findViewById<Button>(R.id.start_button).setOnClickListener { onStartClicked() }
-        findViewById<Button>(R.id.stop_button).setOnClickListener {
-            savePrefsFromUi()
-            SatelliteService.stop(this)
-        }
+        satelliteToggleButton.setOnClickListener { onToggleSatelliteClicked() }
+        updateToggleButton()
 
         tabSatellite.setOnClickListener { showSatelliteTab() }
         tabLiveView.setOnClickListener { showLiveViewTab() }
-        findViewById<Button>(R.id.live_view_close).setOnClickListener { showSatelliteTab() }
     }
 
     override fun onResume() {
@@ -322,6 +322,21 @@ class MainActivity : AppCompatActivity() {
         SatelliteService.start(this)
     }
 
+    private fun onToggleSatelliteClicked() {
+        if (SatelliteService.running) {
+            savePrefsFromUi()
+            SatelliteService.stop(this)
+        } else {
+            onStartClicked()
+        }
+    }
+
+    private fun updateToggleButton() {
+        satelliteToggleButton.setText(
+            if (SatelliteService.running) R.string.action_stop else R.string.action_start,
+        )
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -347,6 +362,7 @@ class MainActivity : AppCompatActivity() {
         val processing = SatelliteService.processingActive
 
         rainbowBanner.active = processing
+        titleStatusDot.live = running
         applyBannerTextColors(processing)
 
         statusView.setText(
@@ -377,6 +393,7 @@ class MainActivity : AppCompatActivity() {
         if (running) {
             lockField(portField)
         }
+        updateToggleButton()
     }
 
     private fun applyBannerTextColors(processing: Boolean) {

@@ -16,7 +16,6 @@
 
     <string name="action_start">Start satellite</string>
     <string name="action_stop">Stop satellite</string>
-    <string name="action_close">Close</string>
 
     <string name="mic_denied">Microphone permission is required to stream audio.</string>
 

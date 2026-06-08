@@ -29,7 +29,7 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_PLAY_TTS, value).apply()
 
     var startOnBoot: Boolean
-        get() = sp.getBoolean(KEY_START_ON_BOOT, false)
+        get() = sp.getBoolean(KEY_START_ON_BOOT, true)
         set(value) = sp.edit().putBoolean(KEY_START_ON_BOOT, value).apply()
 
     /** One of the MediaRecorder.AudioSource constants. */
